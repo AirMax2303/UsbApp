@@ -4,6 +4,7 @@ import android.content.Context
 import android.hardware.usb.*
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import com.google.gson.Gson
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -39,20 +40,33 @@ class MainActivity : AppCompatActivity() {
     private val interfaceClass: Int = 0
     private val interfaceIndex: Int? = usbDevice?.let { doFindInterface(it, interfaceClass) }
     private val usbInterface: UsbInterface? = interfaceIndex?.let { usbDevice?.getInterface(it) }
-    private val typeEndpoint: Int = 0 
+    private val typeEndpoint: Int = 0
     private val endpointIndex = usbInterface?.let { doFindEndpoint(it, typeEndpoint) }
     private val usbEndpoint: UsbEndpoint? = endpointIndex?.let { usbInterface?.getEndpoint(it) }
     private val usbDeviceConnection: UsbDeviceConnection =
         usbManager.openDevice(usbManager.deviceList.getValue(desiredUsbName))
-    val target = mapOf<String, String>(
-        "coordinates" to "50.4513695760717, 30.524663230691157",
-        "type" to "small enemy",
-        "name" to "H",
+
+
+    private val target = Target(
+        coordinates = "50.4513695760717, 30.524663230691157",
+        type = "small enemy",
+        name = "base",
     )
-    private val buffer: ByteArray = JSONObject(target).toString().encodeToByteArray()
+    var gson = Gson()
+    var targetEntity = gson.toJson(target)
+    private val buffer: ByteArray = targetEntity.toString().encodeToByteArray()
     private val hexCode = buffer.hashCode()
-    var res: Int? =
-        usbEndpoint?.let { usbDeviceConnection.bulkTransfer(it, buffer, hexCode, 100) }
+
+    // Отправка данных
+    var res: Int? = usbEndpoint?.let { usbDeviceConnection.bulkTransfer(it, buffer, hexCode, 100) }
 
 
+    // Получение цели из массива байт
+    fun getDataFromUsb(buffer: ByteArray) {
+        val targetString = buffer.decodeToString()
+        val result = targetString.toKotlinObject<com.example.usbapp.Target>()
+    }
+
+    inline fun <reified T : Any> String.toKotlinObject(): T =
+        Gson().fromJson(this, T::class.java)
 }
